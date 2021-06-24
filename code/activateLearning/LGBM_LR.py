@@ -46,7 +46,7 @@ def getmax(L, R):
 def avgfeature(df):
         avg = pd.DataFrame(df.iloc[:,:512].copy())
         for i in range(512):
-                avg[avg.columns[i]] = (df[df.columns[i]] + df[df.columns[i+512]])
+                avg[avg.columns[i]] = (df[df.columns[i]] + df[df.columns[i+512]])/2
         return avg
 #%%
 df_train = pd.read_csv("/home/sam/Mammography/code/data/beststudyfeature_multitrain.csv", header =None)
@@ -77,6 +77,7 @@ LX_test = Ldf_test
 RX_test = Rdf_test
 Lybi_test = df_test.iloc[0:1267,1024] 
 Rybi_test = df_test.iloc[1267:,1025]
+Lyden_test = df_test.iloc[0:1267, 1026].to_numpy()
 
 
 LX_ho = Ldf_holdout
@@ -84,8 +85,8 @@ RX_ho = Rdf_holdout
 
 Lybi_ho = df_holdout.iloc[0:1272,1024] 
 Rybi_ho = df_holdout.iloc[1272:,1025] 
-Lyden_ho = df_holdout.iloc[0:1272,1026]
-Ryden_ho = df_holdout.iloc[1272:,1027]
+Lyden_ho = df_holdout.iloc[0:1272,1026].to_numpy()
+Ryden_ho = df_holdout.iloc[1272:,1027].to_numpy()
 
 
 # assemble initial data
@@ -97,6 +98,7 @@ Rybi_train = Rybi_train.to_numpy()
 """
 X_train = X_train.to_numpy()
 ybi_train = np.array(ybi_train)
+yden_train = np.array(yden_train)
 
 LX_test = LX_test.to_numpy()
 RX_test = RX_test.to_numpy()
@@ -111,28 +113,38 @@ Rybi_hold = Rybi_ho.to_numpy()
 #n_initial = 100
 #initial_idx = np.random.choice(range(len(X_train)), size=n_initial, replace=False)
 #birad 1->5: 3091 1731 658 311 66
-
+"""
 birad1_ind = np.where(ybi_train == 0)[0] #return tuple
 birad2_ind = np.where(ybi_train == 1)[0]
 birad3_ind = np.where(ybi_train == 2)[0]
 birad4_ind = np.where(ybi_train == 3)[0]
 birad5_ind = np.where(ybi_train == 4)[0]
 initial_idx = np.concatenate((birad1_ind[-250:], birad2_ind[-250:], birad3_ind[-250:], birad4_ind[-250:], birad5_ind))
+"""
+den0_ind = np.where(yden_train == 0)[0] #return tuple
+den1_ind = np.where(yden_train == 1)[0]
+den2_ind = np.where(yden_train == 2)[0]
+den3_ind = np.where(yden_train == 3)[0]
+print(len(den0_ind))
+print(len(den1_ind))
+print(len(den2_ind))
+print(len(den3_ind))
 
+initial_idx = np.concatenate((den0_ind, den1_ind[-300:], den2_ind[-300:], den3_ind[-300:]))
 
 X_initial = X_train[initial_idx]
-y_initial = ybi_train[initial_idx]
+y_initial = yden_train[initial_idx]
 
 
 #%%
 # initializing the learner
 
-cls = lgbm.LGBMClassifier(application = "multiclass", learning_rate = 0.09, num_iterations=23, num_leaves = 100,\
-boosting_type="goss", max_depth = 6, max_bin = 200,\
-task ="train", objective = "multiclass", num_classes =5, seed = 10, data_random_seed = 100, bagging_seed = 100, \
+cls = lgbm.LGBMClassifier(application = "multiclass", learning_rate = 0.1, num_iterations=45, num_leaves = 100,\
+boosting_type="dart", max_depth = 5, max_bin = 200,\
+task ="train", objective = "multiclass", num_classes =4, seed = 100, data_random_seed = 100, bagging_seed = 100, \
 is_unbalance = True) 
    
-cls.fit(X_initial, y_initial, verbose=True, eval_set= (RX_test, Rybi_test))
+cls.fit(X_initial, y_initial, verbose=True, eval_set= (LX_test, Lyden_test))
 """
 Lcls = pickle.load(open('/home/sam/Mammography/code/modelLGBM/LGBM_512_avg_top_left.sav', "rb"))
 Rcls = pickle.load(open('/home/sam/Mammography/code/modelLGBM/LGBM_512_avg_top_right.sav', "rb"))
@@ -140,29 +152,29 @@ Rcls = pickle.load(open('/home/sam/Mammography/code/modelLGBM/LGBM_512_avg_top_r
 
 #holdout
 print("_________HOLDOUT_________")
-print("LEFT BIRAD:")
-PrintResult(cls, LX_hold, Lybi_hold )
-print("RIGHT BIRAD:")
-PrintResult(cls, RX_hold, Rybi_hold )
+print("LEFT DENSITY:")
+PrintResult(cls, LX_hold, Lyden_ho )
+print("RIGHT DENSITY:")
+PrintResult(cls, RX_hold, Ryden_ho )
 
 #STUDY
-L_bi = cls.predict(LX_hold)
-R_bi = cls.predict(RX_hold)
-#L_den = clfden.predict(LX_ho)
-#R_den = clfden.predict(RX_ho)
-ybi = getmax(list(Lybi_ho), list(Rybi_ho))
-#yden = getmax(list(Lyden_ho), list(Ryden_ho))
-ybi_pred = getmax(L_bi, R_bi)
-#yden_pred = getmax(L_den, R_den)
+#L_bi = cls.predict(LX_hold)
+#R_bi = cls.predict(RX_hold)
+L_den = cls.predict(LX_ho)
+R_den = cls.predict(RX_ho)
+#ybi = getmax(list(Lybi_ho), list(Rybi_ho))
+yden = getmax(list(Lyden_ho), list(Ryden_ho))
+#ybi_pred = getmax(L_bi, R_bi)
+yden_pred = getmax(L_den, R_den)
 
-print("____BIRAD___")
-print('LightGBM Model accuracy score: {0:0.4f}'.format(accuracy_score(ybi, ybi_pred)))
-cm = confusion_matrix(ybi, ybi_pred)
+print("____DENSITY___")
+print('LightGBM Model accuracy score: {0:0.4f}'.format(accuracy_score(yden, yden_pred)))
+cm = confusion_matrix(yden, yden_pred)
 print('Confusion matrix\n\n', cm)
 
-print(classification_report(ybi, ybi_pred))
-print("F1 macro:", f1_score(ybi, ybi_pred, average = 'macro'))
+print(classification_report(yden, yden_pred))
+print("F1 macro:", f1_score(yden, yden_pred, average = 'macro'))
 
-filename = "/home/sam/Mammography/code/modelLGBM/LGBM_512_sum_top_right.sav"
+filename = "/home/sam/Mammography/code/modelLGBM/LGBM_512_avg_DENSITY.sav"
 pickle.dump(cls, open(filename, 'wb'))
 
