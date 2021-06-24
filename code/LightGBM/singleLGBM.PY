@@ -57,6 +57,7 @@ Rdf_testCC, Rdf_testMLO = getview(Rdf_test)
 Ldf_hoCC, Ldf_hoMLO = getview(Ldf_holdout)
 Rdf_hoCC, Rdf_hoMLO = getview(Rdf_holdout)
 # %%
+"""
 X_train = pd.concat((avgfeature(Ldf_trainCC,Ldf_trainMLO), avgfeature(Rdf_trainCC,Rdf_trainMLO)), axis = 0).to_numpy()
 ybi_train = getmax(list(Ldf_trainCC.iloc[:,512]), list(Ldf_trainMLO.iloc[:,512])) + getmax(list(Rdf_trainCC.iloc[:,512]), list(Rdf_trainMLO.iloc[:,512]))
 ybi_train = np.array(ybi_train)
@@ -66,22 +67,30 @@ yden_train = getmax(list(Ldf_trainCC.iloc[:,513]), list(Ldf_trainMLO.iloc[:,513]
 X_test = pd.concat((avgfeature(Ldf_testCC,Ldf_testMLO), avgfeature(Rdf_testCC,Rdf_testMLO)), axis = 0)
 ybi_test = getmax(list(Ldf_testCC.iloc[:,512]), list(Ldf_testMLO.iloc[:,512])) + getmax(list(Rdf_testCC.iloc[:,512]), list(Rdf_testMLO.iloc[:,512]))
 yden_test = getmax(list(Ldf_testCC.iloc[:,513]), list(Ldf_testMLO.iloc[:,513])) + getmax(list(Rdf_testCC.iloc[:,513]), list(Rdf_testMLO.iloc[:,513]))
+"""
+X_train = df_train.iloc[:,0:512].to_numpy()
+ybi_train = df_train.iloc[:, 512].to_numpy()
+yden_train = df_train.iloc[:, 513].to_numpy()
 
+X_test = df_test.iloc[:,0:512].to_numpy()
+ybi_test = df_test.iloc[:, 512].to_numpy()
+yden_test = df_test.iloc[:, 513].to_numpy()
 
-LX_ho = avgfeature(Ldf_hoCC,Ldf_hoMLO)
+"""
+LX_ho =  avgfeature(Ldf_hoCC,Ldf_hoMLO)
 RX_ho = avgfeature(Rdf_hoCC,Rdf_hoMLO)
 
 Lybi_ho = getmax(list(Ldf_hoCC.iloc[:,512]), list(Ldf_hoMLO.iloc[:,512]))
 Rybi_ho = getmax(list(Rdf_hoCC.iloc[:,512]), list(Rdf_hoMLO.iloc[:,512]))
 Lyden_ho = getmax(list(Ldf_hoCC.iloc[:,513]), list(Ldf_hoMLO.iloc[:,513]))
 Ryden_ho = getmax(list(Rdf_hoCC.iloc[:,513]), list(Rdf_hoMLO.iloc[:,513]))
-
+"""
 birad1_ind = np.where(ybi_train == 1)[0] #return tuple
 birad2_ind = np.where(ybi_train == 2)[0]
 birad3_ind = np.where(ybi_train == 3)[0]
 birad4_ind = np.where(ybi_train == 4)[0]
 birad5_ind = np.where(ybi_train == 5)[0]
-initial_idx = np.concatenate((birad1_ind[-250:], birad2_ind[-250:], birad3_ind[-250:], birad4_ind[-250:], birad5_ind))
+initial_idx = np.concatenate((birad1_ind[-500:], birad2_ind[-500:], birad3_ind[-500:], birad4_ind[-500:], birad5_ind))
 
 X_initial = X_train[initial_idx]
 y_initial = ybi_train[initial_idx]
@@ -92,14 +101,14 @@ clfbi = lgbm.LGBMClassifier(application = "multiclass", learning_rate = 0.1, num
 boosting_type="goss", max_depth = 6, max_bin = 200,\
 task ="train", objective = "multiclass", num_classes =5, seed = 10, data_random_seed = 100, bagging_seed = 100, \
 is_unbalance = True)
-#clfden = lgbm.LGBMClassifier(application = "multiclass",  num_iterations=80, boosting_type="dart", max_depth = 6, max_bin=200)
+clfden = lgbm.LGBMClassifier(application = "multiclass",  num_iterations=80, boosting_type="dart", max_depth = 6, max_bin=200,class_weight={0:3, 1:2, 2:1, 3:1} )
 clfbi.fit(X_initial, y_initial, verbose=True, eval_set= (X_test, ybi_test))
-#clfden.fit(X_train, yden_train, verbose=True, eval_set = (X_test, yden_test))
+clfden.fit(X_train, yden_train, verbose=True, eval_set = (X_test, yden_test))
 
-filenamebi = '/home/sam/Mammography/code/modelLGBM/LGBM_1model_avg_birad.sav'
+filenamebi = '/home/sam/Mammography/code/modelLGBM/LGBM_singleview_birad.sav'
 pickle.dump(clfbi, open(filenamebi, 'wb'))
-filenameden = '/home/sam/Mammography/code/modelLGBM/LGBM_1model_avg_density.sav'
-#pickle.dump(clfden, open(filenameden, 'wb'))
+filenameden = '/home/sam/Mammography/code/modelLGBM/LGBM_singleview_density.sav'
+pickle.dump(clfden, open(filenameden, 'wb'))
 
 """
 print("_________HOLDOUT_________")
@@ -111,6 +120,7 @@ PrintResult(clfden, X_ho, yden_ho )
 
 
 
+"""
 """
 clfbi = pickle.load(open(filenamebi, 'rb'))
 clfden = pickle.load(open(filenameden, 'rb'))
@@ -154,13 +164,16 @@ PrintResult( yden_pred, yden )
 
 """
 #holdout
-LX_ho_CC,LX_ho_MLO = getview(LX_ho)
-Lybi_ho_CC, Lybi_ho_MLO = getview(Lybi_ho)
-Lyden_ho_CC,Lyden_ho_MLO = getview(Lyden_ho)
+Ldf_hoCC, Ldf_hoMLO = getview(Ldf_holdout)
+Rdf_hoCC, Rdf_hoMLO = getview(Rdf_holdout)
 
-RX_ho_CC,RX_ho_MLO = getview(RX_ho)
-Rybi_ho_CC, Rybi_ho_MLO = getview(Rybi_ho)
-Ryden_ho_CC,Ryden_ho_MLO = getview(Ryden_ho)
+LX_ho_CC,LX_ho_MLO = Ldf_hoCC.iloc[:,0:512], Ldf_hoMLO.iloc[:,0:512]
+Lybi_ho_CC, Lybi_ho_MLO = Ldf_hoCC.iloc[:,512], Ldf_hoMLO.iloc[:,512]
+Lyden_ho_CC,Lyden_ho_MLO = Ldf_hoCC.iloc[:,513], Ldf_hoMLO.iloc[:,513]
+
+RX_ho_CC,RX_ho_MLO = Rdf_hoCC.iloc[:,0:512], Rdf_hoMLO.iloc[:,0:512]
+Rybi_ho_CC, Rybi_ho_MLO = Rdf_hoCC.iloc[:,512], Rdf_hoMLO.iloc[:,512]
+Ryden_ho_CC,Ryden_ho_MLO = Rdf_hoCC.iloc[:,513], Rdf_hoMLO.iloc[:,513]
 
 print("_________HOLDOUT_________")
 print("__LEFT__")
@@ -196,12 +209,12 @@ PrintResult( Ryden_pred, Ryden )
 #STUDY
 #%%
 
-ybi = []
-for i in range(0,df_holdout.shape[0],4):
-    ybi.append(max(df_holdout.iloc[i,512],df_holdout.iloc[i+1,512],df_holdout.iloc[i+2,512],df_holdout.iloc[i+3,512]))
-print("birad 5:", ybi.count(5))
+#ybi = []
+#for i in range(0,df_holdout.shape[0],4):
+#    ybi.append(max(df_holdout.iloc[i,512],df_holdout.iloc[i+1,512],df_holdout.iloc[i+2,512],df_holdout.iloc[i+3,512]))
+#print("birad 5:", ybi.count(5))
 
-#ybi = getmax(list(Lybi), list(Rybi))
+ybi = getmax(list(Lybi), list(Rybi))
 yden = getmax(list(Lyden), list(Ryden))
 ybi_pred = getmax(Lybi_pred, Rybi_pred)
 yden_pred = getmax(Lyden_pred, Ryden_pred)
@@ -218,5 +231,5 @@ PrintResult( yden_pred, yden )
 #filename = '/home/single4/mammo/mammo/sam/multiview/modelLGBM/Den_512_lgbmtop1.sav'
 #pickle.dump(clfden, open(filename, 'wb'))
 
-"""
+
 # %%
