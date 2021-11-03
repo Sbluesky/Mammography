@@ -32,7 +32,7 @@ def getmax(L, R):
     return res
 #%%
 def getdataframe(df):
-    #function to get dataframe frome studies
+    #function to get dataframe from studies
     Left = df.drop(df.columns[1024:2048], axis = 1)
     Left.columns = range(Left.shape[1])
     Right = df.drop(df.columns[0:1024], axis = 1)
